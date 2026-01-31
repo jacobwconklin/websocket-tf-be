@@ -125,7 +125,8 @@ Verification:
 
 ---
 
-### [ ] Step: Socket.IO Integration
+### [x] Step: Socket.IO Integration
+<!-- chat-id: 30764801-221a-4e51-87a0-b7390b341317 -->
 
 Set up Socket.IO server and implement join session functionality.
 

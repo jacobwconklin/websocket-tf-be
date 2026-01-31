@@ -8,8 +8,11 @@
     "dev": "node src/server.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.22.1",
-    "socket.io": "^4.8.1",
-    "cors": "^2.8.5"
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }
