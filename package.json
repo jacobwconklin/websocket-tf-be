@@ -1,5 +1,28 @@
 {
+  "name": "simple-socketio-server",
+  "version": "1.0.0",
+  "description": "Simple Socket.IO backend server for multiplayer games",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "test-client": "node test-client.js",
+    "test-disconnect": "node test-disconnect.js",
+    "test-edge-cases": "node test-edge-cases.js"
+  },
   "dependencies": {
-    "express": "^4.22.1"
+    "cors": "^2.8.5",
+    "express": "^4.22.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.5.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.12",
+    "@types/node": "^20.8.1",
+    "socket.io-client": "^4.8.3"
   }
 }
