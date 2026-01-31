@@ -1,5 +1,15 @@
 {
+  "name": "simple-socketio-server",
+  "version": "1.0.0",
+  "description": "Simple Socket.IO backend server for multiplayer games",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
   "dependencies": {
-    "express": "^4.22.1"
+    "express": "^4.22.1",
+    "socket.io": "^4.8.1",
+    "cors": "^2.8.5"
   }
 }
