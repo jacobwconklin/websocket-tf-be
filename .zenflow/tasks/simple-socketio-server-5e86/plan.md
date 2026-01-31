@@ -69,7 +69,8 @@ Verification:
 
 ---
 
-### [ ] Step: Core Models and Utilities
+### [x] Step: Core Models and Utilities
+<!-- chat-id: 9eb6f0b3-d11e-4b3e-9d99-1fa1883c972a -->
 
 Create data models and utility functions for session and player management.
 
