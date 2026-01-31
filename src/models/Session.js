@@ -8,7 +8,14 @@ class Session {
   }
 
   addPlayer(player) {
+    const existing = this.getPlayer(player.id);
+    if (existing) {
+      // update existing player's properties
+      Object.assign(existing, player);
+      return existing;
+    }
     this.players.push(player);
+    return player;
   }
 
   removePlayer(playerId) {
