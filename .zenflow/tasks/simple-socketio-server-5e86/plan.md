@@ -106,7 +106,8 @@ Verification:
 
 ---
 
-### [ ] Step: HTTP Endpoint - Create Session
+### [x] Step: HTTP Endpoint - Create Session
+<!-- chat-id: aa7d426f-163f-4eac-bb11-4c734c170c8c -->
 
 Implement the REST endpoint for creating new game sessions.
 
