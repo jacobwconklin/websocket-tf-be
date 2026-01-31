@@ -29,7 +29,7 @@
 ### 1. Server Setup
 - Create an Express server with socket.io integration
 - Configure CORS if needed for client connections
-- Set up appropriate port (default: 3000 or from environment variable)
+- Set up appropriate port (default: 5000 or from environment variable)
 
 ### 2. Data Models
 
@@ -158,7 +158,7 @@ server.js                  # All logic in one file
 
 ### Manual Verification Steps
 1. Start server: `node src/server.js` or `npm start`
-2. Create session: `curl -X POST http://localhost:3000/api/session/create`
+2. Create session: `curl -X POST http://localhost:5000/api/session/create`
 3. Use Postman or socket.io client to test join functionality
 4. Verify console logs show proper state management
 

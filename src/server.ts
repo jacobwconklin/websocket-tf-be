@@ -1,9 +1,10 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const { createSession, getSession, addPlayerToSession, removePlayerFromSession } = require('./sessionManager');
-const Player = require('./models/Player');
+import express, { Request, Response } from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { createSession, getSession, addPlayerToSession, removePlayerFromSession } from './sessionManager';
+import Player from './models/Player';
+import type { Socket } from 'socket.io';
 
 const app = express();
 const server = http.createServer(app);
@@ -20,8 +21,8 @@ app.use(cors());
 app.use(express.json());
 
 // Health check at root - returns a small HTML page with an inline SVG thumbs-up
-app.get('/', (req, res) => {
-  res.set('Content-Type', 'text/html')
+app.get('/', (_req: Request, res: Response) => {
+  res.set('Content-Type', 'text/html');
   res.send(`<!doctype html>
 <html lang="en">
   <head>
@@ -46,14 +47,14 @@ app.get('/', (req, res) => {
       </svg>
     </div>
   </body>
-</html>`)
-})
+</html>`);
+});
 
-app.post('/api/session/create', (req, res) => {
+app.post('/api/session/create', (req: Request, res: Response) => {
   try {
     const { gameName } = req.body;
     const session = createSession(gameName || null);
-    
+
     res.status(201).json({
       success: true,
       joinCode: session.joinCode,
@@ -68,17 +69,19 @@ app.post('/api/session/create', (req, res) => {
   }
 });
 
-app.get('/api/session/:code', (req, res) => {
+app.get('/api/session/:code', (req: Request, res: Response) => {
   const { code } = req.params;
   const session = getSession(code);
   if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
   res.json({ success: true, session: session.toJSON() });
 });
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
+  // attach typed data storage to socket
+  (socket as any).data = (socket as any).data || {};
   console.log('Client connected:', socket.id);
 
-  socket.on('join-session', (data) => {
+  socket.on('join-session', (data: any) => {
     const { joinCode, alias, color, font, icon } = data;
 
     if (!joinCode) {
@@ -96,11 +99,11 @@ io.on('connection', (socket) => {
     addPlayerToSession(joinCode, player);
 
     socket.join(joinCode);
-    socket.data.joinCode = joinCode;
-    socket.data.playerId = socket.id;
+    (socket as any).data.joinCode = joinCode;
+    (socket as any).data.playerId = socket.id;
 
     // Reply to the joining socket with full session state
-    const sessionAfterJoin = getSession(joinCode);
+    const sessionAfterJoin = getSession(joinCode)!;
     socket.emit('join-success', {
       success: true,
       players: sessionAfterJoin.players.map(p => p.toJSON()),
@@ -122,9 +125,9 @@ io.on('connection', (socket) => {
     console.log(`Player ${alias} (${socket.id}) joined session ${joinCode}`);
   });
 
-  socket.on('start-game', (data) => {
+  socket.on('start-game', (data: any) => {
     const { code } = data || {};
-    const { joinCode } = socket.data;
+    const joinCode = (socket as any).data.joinCode;
     const sessionCode = code || joinCode;
     if (!sessionCode) return;
     const session = getSession(sessionCode);
@@ -144,34 +147,35 @@ io.on('connection', (socket) => {
     console.log(`Game started for session ${sessionCode}`);
   });
 
-  socket.on('leave-session', (data) => {
-    const { code } = data || {}
-    const sessionCode = code || socket.data.joinCode
-    const playerId = socket.data.playerId
-    if (!sessionCode || !playerId) return
+  socket.on('leave-session', (data: any) => {
+    const { code } = data || {};
+    const sessionCode = code || (socket as any).data.joinCode;
+    const playerId = (socket as any).data.playerId;
+    if (!sessionCode || !playerId) return;
 
-    const session = removePlayerFromSession(sessionCode, playerId)
+    const session = removePlayerFromSession(sessionCode, playerId);
     if (session) {
       io.to(sessionCode).emit('player-left', {
         playerId: playerId,
         players: session.players.map(p => p.toJSON())
-      })
+      });
 
       io.to(sessionCode).emit('partyState', {
         players: session.players.map(p => p.toJSON()),
         gameStarted: Boolean(session.gameState?.started)
-      })
+      });
 
-      console.log(`Player ${playerId} left session ${sessionCode}`)
+      console.log(`Player ${playerId} left session ${sessionCode}`);
     }
-  })
+  });
 
   socket.on('disconnect', () => {
-    const { joinCode, playerId } = socket.data;
+    const joinCode = (socket as any).data.joinCode;
+    const playerId = (socket as any).data.playerId;
 
     if (joinCode && playerId) {
       const session = removePlayerFromSession(joinCode, playerId);
-      
+
       if (session) {
         io.to(joinCode).emit('player-left', {
           playerId: playerId,
@@ -195,4 +199,4 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = { app, server, io };
+export { app, server, io };

@@ -1,7 +1,7 @@
 const io = require('socket.io-client');
 const http = require('http');
 
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = 'http://localhost:5000';
 
 async function createSession() {
   return new Promise((resolve, reject) => {
@@ -9,7 +9,7 @@ async function createSession() {
     
     const options = {
       hostname: 'localhost',
-      port: 3000,
+      port: 5000,
       path: '/api/session/create',
       method: 'POST',
       headers: {

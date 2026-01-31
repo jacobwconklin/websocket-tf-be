@@ -1,10 +1,11 @@
-const Session = require('./models/Session');
-const { generateJoinCode } = require('./utils/codeGenerator');
+import Session from './models/Session';
+import Player from './models/Player';
+import { generateJoinCode } from './utils/codeGenerator';
 
-const sessions = new Map();
+const sessions: Map<string, Session> = new Map();
 
-function createSession(gameName = null) {
-  let joinCode;
+export function createSession(gameName: string | null = null): Session {
+  let joinCode: string;
   do {
     joinCode = generateJoinCode();
   } while (sessions.has(joinCode));
@@ -14,11 +15,11 @@ function createSession(gameName = null) {
   return session;
 }
 
-function getSession(joinCode) {
+export function getSession(joinCode: string): Session | undefined {
   return sessions.get(joinCode);
 }
 
-function addPlayerToSession(joinCode, player) {
+export function addPlayerToSession(joinCode: string, player: Player): Session | null {
   const session = sessions.get(joinCode);
   if (!session) {
     return null;
@@ -27,23 +28,16 @@ function addPlayerToSession(joinCode, player) {
   return session;
 }
 
-function removePlayerFromSession(joinCode, playerId) {
+export function removePlayerFromSession(joinCode: string, playerId: string): Session | null {
   const session = sessions.get(joinCode);
   if (!session) {
     return null;
   }
   session.removePlayer(playerId);
-  
+
   if (session.players.length === 0) {
     sessions.delete(joinCode);
   }
-  
+
   return session;
 }
-
-module.exports = {
-  createSession,
-  getSession,
-  addPlayerToSession,
-  removePlayerFromSession
-};
