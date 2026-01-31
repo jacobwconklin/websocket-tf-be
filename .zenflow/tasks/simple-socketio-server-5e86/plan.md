@@ -18,7 +18,8 @@ Do not make assumptions on important decisions — get clarification first.
 
 ## Workflow Steps
 
-### [ ] Step: Technical Specification
+### [x] Step: Technical Specification
+<!-- chat-id: 66f78085-ad5c-4786-bce1-1ea282b5150c -->
 
 Assess the task's difficulty, as underestimating it leads to poor outcomes.
 - easy: Straightforward implementation, trivial bug fix or feature
@@ -50,15 +51,112 @@ Save to `{@artifacts_path}/plan.md`. If the feature is trivial and doesn't warra
 
 ---
 
-### [ ] Step: Implementation
+### [ ] Step: Project Setup and Dependencies
 
-Implement the task according to the technical specification and general engineering best practices.
+Install and configure required dependencies for the Socket.IO server.
 
-1. Break the task into steps where possible.
-2. Implement the required changes in the codebase.
-3. Add and run relevant tests and linters.
-4. Perform basic manual verification if applicable.
-5. After completion, write a report to `{@artifacts_path}/report.md` describing:
-   - What was implemented
-   - How the solution was tested
-   - The biggest issues or challenges encountered
+Tasks:
+- [ ] Add socket.io dependency to package.json
+- [ ] Add cors dependency for cross-origin support
+- [ ] Create basic project structure (src/ directory)
+- [ ] Add npm scripts (start, dev) to package.json
+- [ ] Install dependencies with npm install
+
+Verification:
+- Verify package.json has socket.io and cors listed
+- Verify node_modules contains new dependencies
+
+---
+
+### [ ] Step: Core Models and Utilities
+
+Create data models and utility functions for session and player management.
+
+Tasks:
+- [ ] Create src/utils/codeGenerator.js for 8-digit join code generation
+- [ ] Create src/models/Player.js class/constructor
+- [ ] Create src/models/Session.js class/constructor
+- [ ] Ensure code generator produces unique alphanumeric codes
+
+Verification:
+- Test code generator produces valid 8-character codes
+- Verify Session and Player models have correct properties
+
+---
+
+### [ ] Step: Session Manager
+
+Implement session management logic with in-memory storage.
+
+Tasks:
+- [ ] Create src/sessionManager.js
+- [ ] Implement sessions Map storage
+- [ ] Implement createSession() function
+- [ ] Implement getSession(joinCode) function
+- [ ] Implement addPlayerToSession(joinCode, player) function
+- [ ] Implement removePlayerFromSession(joinCode, playerId) function
+
+Verification:
+- Test creating multiple sessions with unique codes
+- Test retrieving sessions by join code
+- Test adding/removing players from sessions
+
+---
+
+### [ ] Step: HTTP Endpoint - Create Session
+
+Implement the REST endpoint for creating new game sessions.
+
+Tasks:
+- [ ] Create src/server.js with Express setup
+- [ ] Configure Express middleware (json, cors)
+- [ ] Implement POST /api/session/create endpoint
+- [ ] Return joinCode in response
+- [ ] Handle errors appropriately
+
+Verification:
+- Start server successfully
+- Test POST /api/session/create with curl or Postman
+- Verify response contains valid joinCode
+
+---
+
+### [ ] Step: Socket.IO Integration
+
+Set up Socket.IO server and implement join session functionality.
+
+Tasks:
+- [ ] Integrate socket.io with Express server in server.js
+- [ ] Implement 'join-session' event handler
+  - Validate join code
+  - Add player to session
+  - Join socket to room
+  - Emit success/error responses
+- [ ] Implement 'disconnect' event handler for cleanup
+- [ ] Broadcast player-joined events to room participants
+
+Verification:
+- Test socket connection establishes successfully
+- Test joining with valid join code returns player list
+- Test joining with invalid code returns error
+- Test multiple clients can join same session
+- Verify disconnect removes player from session
+
+---
+
+### [ ] Step: Testing and Final Verification
+
+Perform comprehensive testing and create completion report.
+
+Tasks:
+- [ ] Manual test complete flow (create → join → multiple players)
+- [ ] Test edge cases (invalid codes, disconnects, empty sessions)
+- [ ] Run linter if configured
+- [ ] Document any issues encountered
+- [ ] Write report to `{@artifacts_path}/report.md`
+
+Verification:
+- All endpoints respond correctly
+- Multiple clients can interact in real-time
+- No console errors or warnings
+- Code follows project conventions
