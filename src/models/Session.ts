@@ -5,6 +5,7 @@ export default class Session {
   gameName: string | null;
   players: Player[];
   gameState: Record<string, any>;
+  started: boolean;
   createdAt: Date;
 
   constructor(joinCode: string, gameName: string | null = null) {
@@ -12,6 +13,7 @@ export default class Session {
     this.gameName = gameName;
     this.players = [];
     this.gameState = {};
+    this.started = false;
     this.createdAt = new Date();
   }
 
@@ -39,6 +41,7 @@ export default class Session {
       gameName: this.gameName,
       players: this.players.map(p => p.toJSON()),
       gameState: this.gameState,
+      started: this.started,
       createdAt: this.createdAt
     };
   }

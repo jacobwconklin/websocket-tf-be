@@ -2,9 +2,15 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { createSession, getSession, addPlayerToSession, removePlayerFromSession } from './sessionManager';
-import Player from './models/Player';
 import type { Socket } from 'socket.io';
+import {
+  handleCreateSession,
+  handleGetSession,
+  handleJoinSession,
+  handleLeaveSession,
+  handleDisconnect
+} from './routers/sessionRouter';
+import { handleStartGame, handleUpdateGame, handleGameStatus } from './routers/gameStateRouter';
 
 const app = express();
 const server = http.createServer(app);
@@ -51,29 +57,11 @@ app.get('/', (_req: Request, res: Response) => {
 });
 
 app.post('/api/session/create', (req: Request, res: Response) => {
-  try {
-    const { gameName } = req.body;
-    const session = createSession(gameName || null);
-
-    res.status(201).json({
-      success: true,
-      joinCode: session.joinCode,
-      gameName: session.gameName
-    });
-  } catch (error) {
-    console.error('Error creating session:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create session'
-    });
-  }
+  handleCreateSession(req, res);
 });
 
 app.get('/api/session/:code', (req: Request, res: Response) => {
-  const { code } = req.params;
-  const session = getSession(code);
-  if (!session) return res.status(404).json({ success: false, error: 'Session not found' });
-  res.json({ success: true, session: session.toJSON() });
+  handleGetSession(req, res);
 });
 
 io.on('connection', (socket: Socket) => {
@@ -82,116 +70,28 @@ io.on('connection', (socket: Socket) => {
   console.log('Client connected:', socket.id);
 
   socket.on('join-session', (data: any) => {
-    const { joinCode, alias, color, font, icon } = data;
-
-    if (!joinCode) {
-      socket.emit('join-error', { error: 'Join code is required' });
-      return;
-    }
-
-    const session = getSession(joinCode);
-    if (!session) {
-      socket.emit('join-error', { error: 'Invalid join code' });
-      return;
-    }
-
-    const player = new Player(socket.id, alias, color, font, icon);
-    addPlayerToSession(joinCode, player);
-
-    socket.join(joinCode);
-    (socket as any).data.joinCode = joinCode;
-    (socket as any).data.playerId = socket.id;
-
-    // Reply to the joining socket with full session state
-    const sessionAfterJoin = getSession(joinCode)!;
-    socket.emit('join-success', {
-      success: true,
-      players: sessionAfterJoin.players.map(p => p.toJSON()),
-      gameName: sessionAfterJoin.gameName,
-      gameState: sessionAfterJoin.gameState
-    });
-
-    // Notify others in room about the new player and emit an updated party state
-    io.to(joinCode).emit('player-joined', {
-      player: player.toJSON(),
-      players: sessionAfterJoin.players.map(p => p.toJSON())
-    });
-
-    io.to(joinCode).emit('partyState', {
-      players: sessionAfterJoin.players.map(p => p.toJSON()),
-      gameStarted: Boolean(sessionAfterJoin.gameState?.started)
-    });
-
-    console.log(`Player ${alias} (${socket.id}) joined session ${joinCode}`);
+    handleJoinSession(socket, io, data);
   });
 
   socket.on('start-game', (data: any) => {
-    const { code } = data || {};
-    const joinCode = (socket as any).data.joinCode;
-    const sessionCode = code || joinCode;
-    if (!sessionCode) return;
-    const session = getSession(sessionCode);
-    if (!session) return;
+    console.log(`Received start-game from socket ${socket.id} for session ${data.code} and game ${data.gameName}`);
+    handleStartGame(socket, io, data);
+  });
 
-    // mark game as started
-    session.gameState = session.gameState || {};
-    session.gameState.started = true;
+  socket.on('update-game', (data: any) => {
+    handleUpdateGame(socket, io, data);
+  });
 
-    // broadcast updated state
-    io.to(sessionCode).emit('partyState', {
-      players: session.players.map(p => p.toJSON()),
-      gameStarted: true
-    });
-
-    io.to(sessionCode).emit('game-started', { success: true });
-    console.log(`Game started for session ${sessionCode}`);
+  socket.on('game-status', (data: any) => {
+    handleGameStatus(socket, io, data);
   });
 
   socket.on('leave-session', (data: any) => {
-    const { code } = data || {};
-    const sessionCode = code || (socket as any).data.joinCode;
-    const playerId = (socket as any).data.playerId;
-    if (!sessionCode || !playerId) return;
-
-    const session = removePlayerFromSession(sessionCode, playerId);
-    if (session) {
-      io.to(sessionCode).emit('player-left', {
-        playerId: playerId,
-        players: session.players.map(p => p.toJSON())
-      });
-
-      io.to(sessionCode).emit('partyState', {
-        players: session.players.map(p => p.toJSON()),
-        gameStarted: Boolean(session.gameState?.started)
-      });
-
-      console.log(`Player ${playerId} left session ${sessionCode}`);
-    }
+    handleLeaveSession(socket, io, data);
   });
 
   socket.on('disconnect', () => {
-    const joinCode = (socket as any).data.joinCode;
-    const playerId = (socket as any).data.playerId;
-
-    if (joinCode && playerId) {
-      const session = removePlayerFromSession(joinCode, playerId);
-
-      if (session) {
-        io.to(joinCode).emit('player-left', {
-          playerId: playerId,
-          players: session.players.map(p => p.toJSON())
-        });
-
-        io.to(joinCode).emit('partyState', {
-          players: session.players.map(p => p.toJSON()),
-          gameStarted: Boolean(session.gameState?.started)
-        });
-
-        console.log(`Player ${playerId} left session ${joinCode}`);
-      }
-    }
-
-    console.log('Client disconnected:', socket.id);
+    handleDisconnect(socket, io);
   });
 });
 

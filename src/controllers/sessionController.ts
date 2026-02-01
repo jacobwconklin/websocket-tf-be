@@ -1,6 +1,6 @@
-import Session from './models/Session';
-import Player from './models/Player';
-import { generateJoinCode } from './utils/codeGenerator';
+import Session from '../models/Session';
+import Player from '../models/Player';
+import { generateJoinCode } from '../utils/codeGenerator';
 
 const sessions: Map<string, Session> = new Map();
 
