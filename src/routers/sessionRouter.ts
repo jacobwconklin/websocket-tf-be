@@ -32,10 +32,15 @@ export function handleGetSession(req: Request, res: Response) {
 
 // Socket Event Handlers
 export function handleJoinSession(socket: Socket, io: Server, data: any) {
-  const { joinCode, alias, color, font, icon } = data;
+  const { joinCode, playerId, alias, color, font, icon } = data;
 
   if (!joinCode) {
     socket.emit('join-error', { error: 'Join code is required' });
+    return;
+  }
+
+  if (!playerId) {
+    socket.emit('join-error', { error: 'Player ID is required' });
     return;
   }
 
@@ -50,12 +55,14 @@ export function handleJoinSession(socket: Socket, io: Server, data: any) {
     return;
   }
 
-  const player = new Player(socket.id, alias, color, font, icon);
+  // Use client-provided player ID
+  const player = new Player(playerId, alias, color, font, icon);
   addPlayerToSession(joinCode, player);
 
   socket.join(joinCode);
   (socket as any).data.joinCode = joinCode;
-  (socket as any).data.playerId = socket.id;
+  (socket as any).data.playerId = playerId; // Store client-provided ID
+  (socket as any).data.socketId = socket.id; // Store socket ID separately for socket management
 
   // Reply to the joining socket with full session state
   const sessionAfterJoin = getSession(joinCode)!;
@@ -77,7 +84,7 @@ export function handleJoinSession(socket: Socket, io: Server, data: any) {
     gameStarted: sessionAfterJoin.started
   });
 
-  console.log(`Player ${alias} (${socket.id}) joined session ${joinCode}`);
+  console.log(`Player ${alias} (${playerId}) joined session ${joinCode} via socket ${socket.id}`);
 }
 
 export function handleLeaveSession(socket: Socket, io: Server, data: any) {

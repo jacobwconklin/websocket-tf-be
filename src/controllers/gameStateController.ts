@@ -4,6 +4,7 @@ import { initializeQuickKeys, updateQuickKeys } from './games/quickkeysControlle
 import { initializeSpaceBarInvaders, updateSpaceBarInvaders } from './games/spacebarinvadersController';
 import { initializeTextSplosion, updateTextSplosion } from './games/textsplosionController';
 import { initializeTypeFlight, updateTypeFlight } from './games/typeflightController';
+import { initializeGames, updateGames } from './games/gamesController';
 
 export function startGame(joinCode: string, gameName: string): Session | null {
   const session = getSession(joinCode);
@@ -31,11 +32,15 @@ export function startGame(joinCode: string, gameName: string): Session | null {
       break;
     case 'typeflight':
       gameState = initializeTypeFlight(session);
+    case 'games':
+      // Game selection page with voting
+      gameState = initializeGames(session);
+      console.log(`Setting session ${joinCode} to games page with voting`);
       break;
     default:
-      // Unknown game or "games" page - set to empty state
+      // Unknown game - set to games page
       session.gameName = 'games';
-      gameState = {};
+      gameState = initializeGames(session);
       console.log(`Setting session ${joinCode} to games page`);
   }
 
@@ -73,6 +78,10 @@ export function updateGame(joinCode: string, playerId: string, data: any): any |
       break;
     case 'typeflight':
       delta = updateTypeFlight(session, playerId, data);
+      break;
+    case 'games':
+      // Handle voting on games selection page
+      delta = updateGames(session, playerId, data);
       break;
     default:
       console.error(`Unknown game: ${session.gameName}`);

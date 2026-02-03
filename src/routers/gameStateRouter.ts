@@ -88,7 +88,8 @@ export function handleGameStatus(socket: Socket, io: Server, data: any) {
     // Send the complete session data back to the requesting client
     socket.emit('game-status', {
       success: true,
-      session: session.toJSON()
+      session: session.toJSON(),
+      playerId: playerId
     });
 
     console.log(`Game status sent to player ${playerId} in session ${joinCode}`);
