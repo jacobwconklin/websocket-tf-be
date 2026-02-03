@@ -18,8 +18,11 @@ export function initializeTextSplosion(session: Session): any {
     initialWordsTyped[player.id] = 0;
   });
 
+  // Shuffle player order so host doesn't always start in hot seat
+  const shuffledPlayerIds = [...playerIds].sort(() => Math.random() - 0.5);
+
   return {
-    playerOrder: playerIds,
+    playerOrder: shuffledPlayerIds,
     expiredPlayers: [],
     wordsTyped: initialWordsTyped,
     numWordsUntilPop: calculateWordsUntilPop(session.players.length),
