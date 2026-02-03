@@ -2,8 +2,6 @@ import Session from '../../models/Session';
 
 // Calculate words needed until pop based on player count
 const calculateWordsUntilPop = (playerCount: number) => {
-  // Temporary small number for testing
-  return 3;
   return playerCount * 20 + Math.floor(Math.random() * 10) + 1;
 };
 
