@@ -2,7 +2,7 @@ import Session from '../../models/Session';
 import type { Server } from 'socket.io';
 
 const GRID_SIZE = 10;
-const EVENT_TYPES = ['fire', 'ice', 'lightning', 'bob', 'laser', 'spikes'] as const;
+const EVENT_TYPES = ['fire', 'ice', 'lightning', 'bomb', 'laser', 'spikes'] as const;
 
 type EventType = (typeof EVENT_TYPES)[number];
 type Direction = 'up' | 'right' | 'down' | 'left';
@@ -31,6 +31,7 @@ interface TypeFlightState {
   gameOver: boolean;
   players: Record<string, TypeFlightPlayerState>;
   playerDeaths: Record<string, number>;
+  wordsTyped: Record<string, number>;
   eventCounts: Record<EventType, number>;
   events: TypeFlightEvent[];
 }
@@ -76,7 +77,7 @@ function emptyEventCounts(): Record<EventType, number> {
     fire: 0,
     ice: 0,
     lightning: 0,
-    bob: 0,
+    bomb: 0,
     laser: 0,
     spikes: 0
   };
@@ -211,9 +212,11 @@ export function initializeTypeFlight(session: Session): any {
   const startedAt = Date.now();
   const players = buildInitialPlayerMap(session);
   const playerDeaths: Record<string, number> = {};
+  const wordsTyped: Record<string, number> = {};
 
   session.players.forEach((player) => {
     playerDeaths[player.id] = 0;
+    wordsTyped[player.id] = 0;
   });
 
   return {
@@ -224,6 +227,7 @@ export function initializeTypeFlight(session: Session): any {
     gameOver: false,
     players,
     playerDeaths,
+    wordsTyped,
     eventCounts: emptyEventCounts(),
     events: []
   };
@@ -274,6 +278,12 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
   if (typeof gameState.playerDeaths[playerId] !== 'number') {
     gameState.playerDeaths[playerId] = 0;
   }
+  if (!gameState.wordsTyped) {
+    gameState.wordsTyped = {};
+  }
+  if (typeof gameState.wordsTyped[playerId] !== 'number') {
+    gameState.wordsTyped[playerId] = 0;
+  }
 
   const delta: any = {
     gameType: 'typeflight',
@@ -285,6 +295,7 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
     delta.gameOver = true;
     delta.elapsedMs = gameState.elapsedMs;
     delta.playerDeaths = gameState.playerDeaths;
+    delta.wordsTyped = gameState.wordsTyped;
     delta.eventCounts = gameState.eventCounts;
     return delta;
   }
@@ -305,9 +316,11 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
       x: next.x,
       y: next.y
     };
+    gameState.wordsTyped[playerId] = (gameState.wordsTyped[playerId] || 0) + 1;
 
     delta.type = 'player-moved';
     delta.player = gameState.players[playerId];
+    delta.wordsTyped = gameState.wordsTyped;
   } else if (data.type === 'player-state') {
     const incoming = normalizePosition(data.player || {});
     const alive = Boolean(data.player?.alive);
@@ -344,6 +357,7 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
     if (delta.gameOver) {
       delta.elapsedMs = gameState.elapsedMs;
       delta.eventCounts = gameState.eventCounts;
+      delta.wordsTyped = gameState.wordsTyped;
     }
   } else if (data.type === 'player-revived') {
     const current = gameState.players[playerId];
