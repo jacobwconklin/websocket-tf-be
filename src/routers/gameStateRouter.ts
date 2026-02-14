@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { updateGame, startGame } from '../controllers/gameStateController';
 import { getSession } from '../controllers/sessionController';
+import { startNextWave } from '../controllers/games/spacebarinvadersController';
 
 export function handleStartGame(socket: Socket, io: Server, data: any) {
     
@@ -61,6 +62,19 @@ export function handleUpdateGame(socket: Socket, io: Server, data: any) {
 
     // Broadcast the delta to all players in the session
     io.to(joinCode).emit('game-update', delta);
+    
+    // Handle wave completion with 5-second delay for SpaceBarInvaders
+    if (delta.waveComplete && delta.gameType === 'spacebarinvaders') {
+      setTimeout(() => {
+        const session = getSession(joinCode);
+        if (session) {
+          const waveDelta = startNextWave(session);
+          if (waveDelta) {
+            io.to(joinCode).emit('game-update', waveDelta);
+          }
+        }
+      }, 5000); // 5 second delay
+    }
     
   } catch (error) {
     console.error('Error updating game:', error);

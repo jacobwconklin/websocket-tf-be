@@ -43,6 +43,10 @@ npm start
 nohup npm start > ./start-logs.log 2>&1 &
 ```
 
+** Find who is on port 5000:
+```
+sudo lsof -i :5000
+```
 
 
 Re-usable pattern:
