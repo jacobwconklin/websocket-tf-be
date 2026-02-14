@@ -32,6 +32,7 @@ export function startGame(joinCode: string, gameName: string): Session | null {
       break;
     case 'typeflight':
       gameState = initializeTypeFlight(session);
+      break;
     case 'games':
       // Game selection page with voting
       gameState = initializeGames(session);

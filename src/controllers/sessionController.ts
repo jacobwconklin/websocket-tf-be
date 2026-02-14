@@ -1,6 +1,7 @@
 import Session from '../models/Session';
 import Player from '../models/Player';
 import { generateJoinCode } from '../utils/codeGenerator';
+import { stopTypeFlightLoop } from './games/typeflightController';
 
 const sessions: Map<string, Session> = new Map();
 
@@ -36,6 +37,7 @@ export function removePlayerFromSession(joinCode: string, playerId: string): Ses
   session.removePlayer(playerId);
 
   if (session.players.length === 0) {
+    stopTypeFlightLoop(joinCode);
     sessions.delete(joinCode);
   }
 

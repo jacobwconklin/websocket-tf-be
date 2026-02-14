@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { updateGame, startGame } from '../controllers/gameStateController';
 import { getSession } from '../controllers/sessionController';
 import { startNextWave } from '../controllers/games/spacebarinvadersController';
+import { startTypeFlightLoop, stopTypeFlightLoop } from '../controllers/games/typeflightController';
 
 export function handleStartGame(socket: Socket, io: Server, data: any) {
     
@@ -17,6 +18,8 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
 
   try {
     const { gameName } = data;
+    const previousSession = getSession(joinCode);
+    const previousGameName = previousSession?.gameName;
     
     console.log(`Starting game ${gameName || 'games'} for session ${joinCode} by player ${playerId}`);
 
@@ -33,6 +36,13 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
       success: true,
       session: session.toJSON()
     });
+
+    // Manage authoritative TypeFlight loop ownership on game transitions.
+    if (gameName === 'typeflight') {
+      startTypeFlightLoop(session, io);
+    } else if (previousGameName === 'typeflight') {
+      stopTypeFlightLoop(joinCode);
+    }
 
     console.log(`Game ${gameName || 'games'} started for session ${joinCode}`);
     
