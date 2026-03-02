@@ -4,6 +4,18 @@ import type { Server } from 'socket.io';
 const GRID_SIZE = 10;
 const EVENT_TYPES = ['fire', 'ice', 'lightning', 'bomb', 'laser', 'spikes'] as const;
 
+const CASUAL_GAME_LENGTH_MS = 60 * 1000;
+const INTENSE_GAME_LENGTH_MS = 45 * 1000;
+const START_WARNING_DURATION_MS = 2500;
+const CASUAL_END_WARNING_DURATION_MS = 1500;
+const START_EVENT_INTERVAL_MS = 2500;
+const CASUAL_END_EVENT_INTERVAL_MS = 1000;
+const MAX_WARNING_DURATION_MS = 500;
+const MAX_EVENT_PAIR_INTERVAL_MS = 500;
+const CASUAL_EVENTS_PER_SPAWN = 3;
+const INTENSE_EVENTS_PER_SPAWN = 4;
+const MAX_EVENTS_PER_SPAWN = 5;
+
 type EventType = (typeof EVENT_TYPES)[number];
 type Direction = 'up' | 'right' | 'down' | 'left';
 
@@ -68,6 +80,21 @@ function randomPosition(): GridPosition {
   return { x: randomInt(GRID_SIZE), y: randomInt(GRID_SIZE) };
 }
 
+function randomUniquePosition(usedKeys: Set<string>): GridPosition {
+  let pos = randomPosition();
+  let key = `${pos.x},${pos.y}`;
+  let tries = 0;
+
+  while (usedKeys.has(key) && tries < GRID_SIZE * GRID_SIZE) {
+    pos = randomPosition();
+    key = `${pos.x},${pos.y}`;
+    tries += 1;
+  }
+
+  usedKeys.add(key);
+  return pos;
+}
+
 function randomEventType(): EventType {
   return EVENT_TYPES[randomInt(EVENT_TYPES.length)];
 }
@@ -110,12 +137,37 @@ function buildInitialPlayerMap(session: Session): Record<string, TypeFlightPlaye
   return players;
 }
 
-function calculateNextIntervalMs(elapsedMs: number): number {
-  // Speeds up over time: starts ~2200ms and decays toward ~450ms.
-  const start = 2200;
-  const floor = 450;
-  const decay = Math.exp(-elapsedMs / 90_000);
-  return Math.max(floor, Math.floor(floor + (start - floor) * decay));
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function lerp(start: number, end: number, t: number): number {
+  return start + (end - start) * t;
+}
+
+function calculateSpawnSettings(elapsedMs: number): { intervalMs: number; eventsPerSpawn: number } {
+  if (elapsedMs <= CASUAL_GAME_LENGTH_MS) {
+    const t = clamp01(elapsedMs / CASUAL_GAME_LENGTH_MS);
+    return {
+      intervalMs: Math.round(lerp(START_EVENT_INTERVAL_MS, CASUAL_END_EVENT_INTERVAL_MS, t)),
+      eventsPerSpawn: CASUAL_EVENTS_PER_SPAWN
+    };
+  }
+
+  const intenseElapsed = elapsedMs - CASUAL_GAME_LENGTH_MS;
+  if (intenseElapsed <= INTENSE_GAME_LENGTH_MS) {
+    const t = clamp01(intenseElapsed / INTENSE_GAME_LENGTH_MS);
+    return {
+      intervalMs: Math.round(lerp(CASUAL_END_EVENT_INTERVAL_MS, MAX_EVENT_PAIR_INTERVAL_MS, t)),
+      eventsPerSpawn: INTENSE_EVENTS_PER_SPAWN
+    };
+  }
+
+  return {
+    intervalMs: MAX_EVENT_PAIR_INTERVAL_MS,
+    eventsPerSpawn: MAX_EVENTS_PER_SPAWN
+  };
 }
 
 function getTypeFlightState(session: Session): TypeFlightState {
@@ -132,7 +184,8 @@ function scheduleNextEvent(joinCode: string, session: Session) {
     return;
   }
 
-  const delay = calculateNextIntervalMs(Date.now() - state.startedAt);
+  const elapsedMs = Date.now() - state.startedAt;
+  const { intervalMs, eventsPerSpawn } = calculateSpawnSettings(elapsedMs);
 
   loop.timer = setTimeout(() => {
     const currentLoop = loops.get(joinCode);
@@ -144,33 +197,37 @@ function scheduleNextEvent(joinCode: string, session: Session) {
       return;
     }
 
-    const eventType = randomEventType();
-    const event: TypeFlightEvent = {
-      id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: eventType,
-      position: randomPosition(),
-      createdAt: Date.now()
-    };
-
     currentState.elapsedMs = Date.now() - currentState.startedAt;
-    currentState.eventCounts[eventType] = (currentState.eventCounts[eventType] ?? 0) + 1;
-    currentState.events.push(event);
+
+    const usedKeys = new Set<string>();
+    for (let i = 0; i < eventsPerSpawn; i += 1) {
+      const eventType = randomEventType();
+      const event: TypeFlightEvent = {
+        id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type: eventType,
+        position: randomUniquePosition(usedKeys),
+        createdAt: Date.now()
+      };
+
+      currentState.eventCounts[eventType] = (currentState.eventCounts[eventType] ?? 0) + 1;
+      currentState.events.push(event);
+
+      currentLoop.io.to(joinCode).emit('game-update', {
+        gameType: 'typeflight',
+        type: 'event-spawned',
+        event,
+        elapsedMs: currentState.elapsedMs,
+        eventCounts: currentState.eventCounts
+      });
+    }
 
     // Keep payload bounded.
     if (currentState.events.length > 100) {
       currentState.events = currentState.events.slice(-100);
     }
 
-    currentLoop.io.to(joinCode).emit('game-update', {
-      gameType: 'typeflight',
-      type: 'event-spawned',
-      event,
-      elapsedMs: currentState.elapsedMs,
-      eventCounts: currentState.eventCounts
-    });
-
     scheduleNextEvent(joinCode, session);
-  }, delay);
+  }, intervalMs);
 }
 
 function checkAndHandleGameOver(session: Session): boolean {
@@ -287,7 +344,8 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
 
   const delta: any = {
     gameType: 'typeflight',
-    playerId: playerId
+    playerId: playerId,
+    elapsedMs: gameState.elapsedMs
   };
 
   if (gameState.gameOver) {
