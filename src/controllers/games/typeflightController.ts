@@ -429,6 +429,11 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
 
     delta.type = 'player-revived';
     delta.player = gameState.players[playerId];
+  } else if (data.type === 'revive-word-typed') {
+    gameState.wordsTyped[playerId] = (gameState.wordsTyped[playerId] || 0) + 1;
+
+    delta.type = 'revive-word-typed';
+    delta.wordsTyped = gameState.wordsTyped;
   } else if (data.type === 'position-update') {
     // Backward compatibility with older client payloads.
     const pos = normalizePosition(data.position || {});
