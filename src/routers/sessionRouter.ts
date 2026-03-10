@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Server, Socket } from 'socket.io';
-import { createSession, getSession, addPlayerToSession, removePlayerFromSession } from '../controllers/sessionController';
+import { createSession, getSession, addPlayerToSession, removePlayerFromSession, endSession } from '../controllers/sessionController';
 import Player from '../models/Player';
 
 // REST API Handlers
@@ -88,10 +88,24 @@ export function handleJoinSession(socket: Socket, io: Server, data: any) {
 }
 
 export function handleLeaveSession(socket: Socket, io: Server, data: any) {
-  const { code } = data || {};
+  const { code, role } = data || {};
   const sessionCode = code || (socket as any).data.joinCode;
   const playerId = (socket as any).data.playerId;
   if (!sessionCode || !playerId) return;
+
+  if (role === 'host') {
+    io.to(sessionCode).emit('session-ended', {
+      reason: 'host-left',
+      message: 'The host left and ended the session.'
+    });
+
+    io.in(sessionCode).socketsLeave(sessionCode);
+    endSession(sessionCode);
+    socket.leave(sessionCode);
+    (socket as any).data.joinCode = undefined;
+    (socket as any).data.playerId = undefined;
+    return;
+  }
 
   const session = removePlayerFromSession(sessionCode, playerId);
   if (session) {
@@ -107,6 +121,10 @@ export function handleLeaveSession(socket: Socket, io: Server, data: any) {
 
     console.log(`Player ${playerId} left session ${sessionCode}`);
   }
+
+  socket.leave(sessionCode);
+  (socket as any).data.joinCode = undefined;
+  (socket as any).data.playerId = undefined;
 }
 
 export function handleDisconnect(socket: Socket, io: Server) {

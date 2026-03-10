@@ -2,6 +2,7 @@ import Session from '../models/Session';
 import Player from '../models/Player';
 import { generateJoinCode } from '../utils/codeGenerator';
 import { stopTypeFlightLoop } from './games/typeflightController';
+import { stopTypekwandoLoop } from './games/typekwandoController';
 
 const sessions: Map<string, Session> = new Map();
 
@@ -38,8 +39,21 @@ export function removePlayerFromSession(joinCode: string, playerId: string): Ses
 
   if (session.players.length === 0) {
     stopTypeFlightLoop(joinCode);
+    stopTypekwandoLoop(joinCode);
     sessions.delete(joinCode);
   }
 
   return session;
+}
+
+export function endSession(joinCode: string): boolean {
+  const session = sessions.get(joinCode);
+  if (!session) {
+    return false;
+  }
+
+  stopTypeFlightLoop(joinCode);
+  stopTypekwandoLoop(joinCode);
+  sessions.delete(joinCode);
+  return true;
 }

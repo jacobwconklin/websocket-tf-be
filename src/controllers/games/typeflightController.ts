@@ -37,6 +37,7 @@ interface TypeFlightEvent {
 
 interface TypeFlightState {
   gameType: 'typeflight';
+  hasBegun: boolean;
   startedAt: number;
   endedAt: number | null;
   elapsedMs: number;
@@ -278,6 +279,7 @@ export function initializeTypeFlight(session: Session): any {
 
   return {
     gameType: 'typeflight',
+    hasBegun: false,
     startedAt,
     endedAt: null,
     elapsedMs: 0,
@@ -292,6 +294,9 @@ export function initializeTypeFlight(session: Session): any {
 
 export function startTypeFlightLoop(session: Session, io: Server) {
   if (session.gameName !== 'typeflight') return;
+
+  const state = session.gameState as TypeFlightState;
+  if (!state?.hasBegun) return;
 
   stopTypeFlightLoop(session.joinCode);
   loops.set(session.joinCode, {
@@ -322,7 +327,35 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
     session.gameState = initializeTypeFlight(session);
   }
 
+  if (data.type === 'typeflight-begin') {
+    const startedState = initializeTypeFlight(session) as TypeFlightState;
+    startedState.hasBegun = true;
+    session.gameState = startedState;
+
+    return {
+      gameType: 'typeflight',
+      type: 'typeflight-begin',
+      elapsedMs: 0,
+      hasBegun: true,
+      players: startedState.players,
+      playerDeaths: startedState.playerDeaths,
+      wordsTyped: startedState.wordsTyped,
+      eventCounts: startedState.eventCounts,
+      gameOver: false
+    };
+  }
+
   const gameState = getTypeFlightState(session);
+
+  if (!gameState.hasBegun) {
+    return {
+      gameType: 'typeflight',
+      type: 'waiting-for-begin',
+      hasBegun: false,
+      elapsedMs: 0
+    };
+  }
+
   gameState.elapsedMs = Date.now() - gameState.startedAt;
 
   // Make sure this player exists in game state.

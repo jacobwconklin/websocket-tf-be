@@ -3,6 +3,7 @@ import { updateGame, startGame } from '../controllers/gameStateController';
 import { getSession } from '../controllers/sessionController';
 import { startNextWave } from '../controllers/games/spacebarinvadersController';
 import { startTypeFlightLoop, stopTypeFlightLoop } from '../controllers/games/typeflightController';
+import { startTypekwandoLoop, stopTypekwandoLoop } from '../controllers/games/typekwandoController';
 
 export function handleStartGame(socket: Socket, io: Server, data: any) {
     
@@ -38,10 +39,14 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
     });
 
     // Manage authoritative TypeFlight loop ownership on game transitions.
-    if (gameName === 'typeflight') {
-      startTypeFlightLoop(session, io);
-    } else if (previousGameName === 'typeflight') {
+    if (previousGameName === 'typeflight' && gameName !== 'typeflight') {
       stopTypeFlightLoop(joinCode);
+    }
+
+    if (gameName === 'typekwando') {
+      startTypekwandoLoop(session, io);
+    } else if (previousGameName === 'typekwando') {
+      stopTypekwandoLoop(joinCode);
     }
 
     console.log(`Game ${gameName || 'games'} started for session ${joinCode}`);
@@ -72,6 +77,13 @@ export function handleUpdateGame(socket: Socket, io: Server, data: any) {
 
     // Broadcast the delta to all players in the session
     io.to(joinCode).emit('game-update', delta);
+
+    if (delta.gameType === 'typeflight' && delta.type === 'typeflight-begin') {
+      const session = getSession(joinCode);
+      if (session) {
+        startTypeFlightLoop(session, io);
+      }
+    }
     
     // Handle wave completion with 5-second delay for SpaceBarInvaders
     if (delta.waveComplete && delta.gameType === 'spacebarinvaders') {

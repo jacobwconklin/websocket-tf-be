@@ -4,6 +4,7 @@ import { initializeQuickKeys, updateQuickKeys } from './games/quickkeysControlle
 import { initializeSpaceBarInvaders, updateSpaceBarInvaders } from './games/spacebarinvadersController';
 import { initializeTextSplosion, updateTextSplosion } from './games/textsplosionController';
 import { initializeTypeFlight, updateTypeFlight } from './games/typeflightController';
+import { initializeTypekwando, updateTypekwando } from './games/typekwandoController';
 import { initializeGames, updateGames } from './games/gamesController';
 
 export function startGame(joinCode: string, gameName: string): Session | null {
@@ -32,6 +33,9 @@ export function startGame(joinCode: string, gameName: string): Session | null {
       break;
     case 'typeflight':
       gameState = initializeTypeFlight(session);
+      break;
+    case 'typekwando':
+      gameState = initializeTypekwando(session);
       break;
     case 'games':
       // Game selection page with voting
@@ -79,6 +83,9 @@ export function updateGame(joinCode: string, playerId: string, data: any): any |
       break;
     case 'typeflight':
       delta = updateTypeFlight(session, playerId, data);
+      break;
+    case 'typekwando':
+      delta = updateTypekwando(session, playerId, data);
       break;
     case 'games':
       // Handle voting on games selection page
