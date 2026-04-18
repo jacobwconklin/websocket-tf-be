@@ -5,7 +5,8 @@ const GRID_SIZE = 10;
 const TYPING_PHASE_MS = 35_000;
 const TYPING_COUNTDOWN_MS = 4_000;
 const WATCH_TICK_MS = 1_000;
-const MAX_RING_DEPTH = Math.floor((GRID_SIZE - 3) / 2);
+const MAX_RING_DEPTH = Math.ceil((GRID_SIZE - 3) / 2);
+const SYMMETRIC_RING_DEPTH = Math.floor((GRID_SIZE - 3) / 2);
 
 type MoveDirection = 'up' | 'left' | 'right' | 'down' | 'wait';
 type AttackDirection = 'up' | 'left' | 'right' | 'down';
@@ -103,7 +104,7 @@ function clonePlayers(players: Record<string, TypekwandoPlayerState>): Record<st
 }
 
 function getBounds(state: TypekwandoState) {
-  const min = state.ringDepth;
+  const min = Math.min(state.ringDepth, SYMMETRIC_RING_DEPTH);
   const max = state.gridSize - 1 - state.ringDepth;
   return { min, max };
 }

@@ -40,13 +40,19 @@ export function startGame(joinCode: string, gameName: string): Session | null {
     case 'games':
       // Game selection page with voting
       gameState = initializeGames(session);
+      session.setPhase('game_select');
       console.log(`Setting session ${joinCode} to games page with voting`);
       break;
     default:
       // Unknown game - set to games page
       session.gameName = 'games';
       gameState = initializeGames(session);
+      session.setPhase('game_select');
       console.log(`Setting session ${joinCode} to games page`);
+  }
+
+  if (session.gameName && session.gameName !== 'games') {
+    session.setPhase('in_game');
   }
 
   session.gameState = gameState;
@@ -97,4 +103,15 @@ export function updateGame(joinCode: string, playerId: string, data: any): any |
   }
 
   return delta;
+}
+
+export function returnToLobby(joinCode: string): Session | null {
+  const session = getSession(joinCode);
+  if (!session) {
+    console.error(`Session ${joinCode} not found`);
+    return null;
+  }
+
+  session.resetToLobby();
+  return session;
 }

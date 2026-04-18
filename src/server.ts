@@ -7,10 +7,12 @@ import {
   handleCreateSession,
   handleGetSession,
   handleJoinSession,
+  handleRejoinSession,
+  handleHostKickPlayer,
   handleLeaveSession,
   handleDisconnect
 } from './routers/sessionRouter';
-import { handleStartGame, handleUpdateGame, handleGameStatus } from './routers/gameStateRouter';
+import { handleStartGame, handleUpdateGame, handleGameStatus, handleHostReturnToLobby } from './routers/gameStateRouter';
 
 const app = express();
 const server = http.createServer(app);
@@ -73,9 +75,13 @@ io.on('connection', (socket: Socket) => {
     handleJoinSession(socket, io, data);
   });
 
-  socket.on('start-game', (data: any) => {
+  socket.on('rejoin-session', (data: any, ack?: (payload: any) => void) => {
+    handleRejoinSession(socket, io, data, ack);
+  });
+
+  socket.on('start-game', (data: any, ack?: (payload: any) => void) => {
     console.log(`Received start-game from socket ${socket.id} for session ${data.code} and game ${data.gameName}`);
-    handleStartGame(socket, io, data);
+    handleStartGame(socket, io, data, ack);
   });
 
   socket.on('update-game', (data: any) => {
@@ -86,8 +92,16 @@ io.on('connection', (socket: Socket) => {
     handleGameStatus(socket, io, data);
   });
 
+  socket.on('host-return-to-lobby', (data: any, ack?: (payload: any) => void) => {
+    handleHostReturnToLobby(socket, io, data, ack);
+  });
+
   socket.on('leave-session', (data: any) => {
     handleLeaveSession(socket, io, data);
+  });
+
+  socket.on('host-kick-player', (data: any, ack?: (payload: any) => void) => {
+    handleHostKickPlayer(socket, io, data, ack);
   });
 
   socket.on('disconnect', () => {

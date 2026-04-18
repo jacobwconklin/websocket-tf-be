@@ -1,19 +1,22 @@
 import { Server, Socket } from 'socket.io';
-import { updateGame, startGame } from '../controllers/gameStateController';
+import { updateGame, startGame, returnToLobby } from '../controllers/gameStateController';
 import { getSession } from '../controllers/sessionController';
 import { startNextWave } from '../controllers/games/spacebarinvadersController';
 import { startTypeFlightLoop, stopTypeFlightLoop } from '../controllers/games/typeflightController';
 import { startTypekwandoLoop, stopTypekwandoLoop } from '../controllers/games/typekwandoController';
+import { isDuplicateEvent } from '../utils/idempotency';
 
-export function handleStartGame(socket: Socket, io: Server, data: any) {
+export function handleStartGame(socket: Socket, io: Server, data: any, ack?: (payload: any) => void) {
     
   console.log("handleStartGame called with data:", data);
 
   const joinCode = (socket as any).data.joinCode;
   const playerId = (socket as any).data.playerId;
+  const eventId = data?.eventId as string | undefined;
 
   if (!joinCode || !playerId) {
     socket.emit('start-error', { error: 'Not in a session' });
+    if (ack) ack({ success: false, error: 'Not in a session' });
     return;
   }
 
@@ -21,6 +24,11 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
     const { gameName } = data;
     const previousSession = getSession(joinCode);
     const previousGameName = previousSession?.gameName;
+
+    if (isDuplicateEvent(`${joinCode}:${playerId}:start-game`, eventId) && previousSession) {
+      if (ack) ack({ success: true, duplicate: true, session: previousSession.toSnapshot() });
+      return;
+    }
     
     console.log(`Starting game ${gameName || 'games'} for session ${joinCode} by player ${playerId}`);
 
@@ -29,13 +37,23 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
 
     if (!session) {
       socket.emit('start-error', { error: 'Failed to start game' });
+      if (ack) ack({ success: false, error: 'Failed to start game' });
       return;
     }
 
     // Broadcast the full session to all players
     io.to(joinCode).emit('game-started', {
       success: true,
-      session: session.toJSON()
+      session: session.toSnapshot()
+    });
+
+    io.to(joinCode).emit('session-phase-changed', {
+      phase: session.phase,
+      gameName: session.gameName
+    });
+
+    io.to(joinCode).emit('session-snapshot', {
+      session: session.toSnapshot()
     });
 
     // Manage authoritative TypeFlight loop ownership on game transitions.
@@ -50,10 +68,12 @@ export function handleStartGame(socket: Socket, io: Server, data: any) {
     }
 
     console.log(`Game ${gameName || 'games'} started for session ${joinCode}`);
+    if (ack) ack({ success: true, session: session.toSnapshot() });
     
   } catch (error) {
     console.error('Error starting game:', error);
     socket.emit('start-error', { error: 'Internal error starting game' });
+    if (ack) ack({ success: false, error: 'Internal error starting game' });
   }
 }
 
@@ -124,7 +144,7 @@ export function handleGameStatus(socket: Socket, io: Server, data: any) {
     // Send the complete session data back to the requesting client
     socket.emit('game-status', {
       success: true,
-      session: session.toJSON(),
+      session: session.toSnapshot(),
       playerId: playerId
     });
 
@@ -134,4 +154,70 @@ export function handleGameStatus(socket: Socket, io: Server, data: any) {
     console.error('Error getting game status:', error);
     socket.emit('game-status-error', { error: 'Internal error retrieving game status' });
   }
+}
+
+export function handleHostReturnToLobby(socket: Socket, io: Server, data: any, ack?: (payload: any) => void) {
+  const joinCode = (socket as any).data.joinCode;
+  const playerId = (socket as any).data.playerId;
+  const eventId = data?.eventId as string | undefined;
+
+  if (!joinCode || !playerId) {
+    socket.emit('host-return-to-lobby-error', { error: 'Not in a session' });
+    if (ack) ack({ success: false, error: 'Not in a session' });
+    return;
+  }
+
+  const sessionBefore = getSession(joinCode);
+  if (!sessionBefore) {
+    socket.emit('host-return-to-lobby-error', { error: 'Session not found' });
+    if (ack) ack({ success: false, error: 'Session not found' });
+    return;
+  }
+
+  if (isDuplicateEvent(`${joinCode}:${playerId}:host-return-to-lobby`, eventId)) {
+    if (ack) ack({ success: true, duplicate: true, session: sessionBefore.toSnapshot() });
+    return;
+  }
+
+  if (sessionBefore.hostPlayerId && sessionBefore.hostPlayerId !== playerId) {
+    socket.emit('host-return-to-lobby-error', { error: 'Only host can return party to lobby' });
+    if (ack) ack({ success: false, error: 'Only host can return party to lobby' });
+    return;
+  }
+
+  if (sessionBefore.gameName === 'typeflight') {
+    stopTypeFlightLoop(joinCode);
+  }
+  if (sessionBefore.gameName === 'typekwando') {
+    stopTypekwandoLoop(joinCode);
+  }
+
+  const session = returnToLobby(joinCode);
+  if (!session) {
+    socket.emit('host-return-to-lobby-error', { error: 'Failed to return to lobby' });
+    if (ack) ack({ success: false, error: 'Failed to return to lobby' });
+    return;
+  }
+
+  io.to(joinCode).emit('session-phase-changed', {
+    phase: session.phase,
+    gameName: session.gameName
+  });
+
+  io.to(joinCode).emit('session-snapshot', {
+    session: session.toSnapshot()
+  });
+
+  io.to(joinCode).emit('partyState', {
+    players: session.players.map(p => p.toJSON()),
+    gameStarted: session.started,
+    phase: session.phase
+  });
+
+  io.to(joinCode).emit('returned-to-lobby', {
+    success: true,
+    session: session.toSnapshot()
+  });
+
+  if (ack) ack({ success: true, session: session.toSnapshot() });
 }
