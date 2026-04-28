@@ -17,6 +17,7 @@ export function startGame(joinCode: string, gameName: string): Session | null {
 
   // Set the game name
   session.gameName = gameName;
+  session.setShowInstructions(gameName !== 'games');
 
   // Initialize game state based on game name
   let gameState = {};
@@ -46,6 +47,7 @@ export function startGame(joinCode: string, gameName: string): Session | null {
     default:
       // Unknown game - set to games page
       session.gameName = 'games';
+      session.setShowInstructions(false);
       gameState = initializeGames(session);
       session.setPhase('game_select');
       console.log(`Setting session ${joinCode} to games page`);
@@ -72,6 +74,14 @@ export function updateGame(joinCode: string, playerId: string, data: any): any |
   if (!session.started) {
     console.error(`Game in session ${joinCode} has not started`);
     return null;
+  }
+
+  if (data?.type === 'hide-instructions') {
+    if (session.hostPlayerId && playerId !== session.hostPlayerId) {
+      return null;
+    }
+    session.setShowInstructions(false);
+    return { type: 'instructions-hidden' };
   }
 
   // Route to the appropriate game controller based on gameName

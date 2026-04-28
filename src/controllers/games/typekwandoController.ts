@@ -2,7 +2,7 @@ import Session from '../../models/Session';
 import type { Server } from 'socket.io';
 
 const GRID_SIZE = 10;
-const TYPING_PHASE_MS = 35_000;
+const TYPING_PHASE_MS = 20_000;
 const TYPING_COUNTDOWN_MS = 4_000;
 const WATCH_TICK_MS = 1_000;
 const MAX_RING_DEPTH = Math.ceil((GRID_SIZE - 3) / 2);
@@ -74,6 +74,12 @@ function buildOuterRingCells(size: number): GridPosition[] {
 function createInitialPlayers(session: Session): Record<string, TypekwandoPlayerState> {
   const outerRingCells = buildOuterRingCells(GRID_SIZE);
   const players: Record<string, TypekwandoPlayerState> = {};
+
+  // Shuffle outerRingCells to ensure random, non-overlapping spawns
+  for (let i = outerRingCells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [outerRingCells[i], outerRingCells[j]] = [outerRingCells[j], outerRingCells[i]];
+  }
 
   session.players.forEach((player, index) => {
     const spawn = outerRingCells[index % outerRingCells.length];

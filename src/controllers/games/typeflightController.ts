@@ -331,6 +331,7 @@ export function updateTypeFlight(session: Session, playerId: string, data: any):
     const startedState = initializeTypeFlight(session) as TypeFlightState;
     startedState.hasBegun = true;
     session.gameState = startedState;
+    session.setShowInstructions(false);
 
     return {
       gameType: 'typeflight',

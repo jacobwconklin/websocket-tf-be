@@ -102,5 +102,20 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
     return delta;
   }
 
+  // Handle host ending game for all players
+  if (data.type === 'end-game') {
+    // Only allow host to end game
+    if (playerId !== session.hostPlayerId) {
+      return null; // Ignore if not host
+    }
+
+    // Mark game as finished
+    session.gameState.finished = true;
+    delta.type = 'game-ended';
+    delta.finished = true;
+
+    return delta;
+  }
+
   return delta;
 }

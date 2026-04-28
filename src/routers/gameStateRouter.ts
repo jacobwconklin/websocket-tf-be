@@ -98,6 +98,15 @@ export function handleUpdateGame(socket: Socket, io: Server, data: any) {
     // Broadcast the delta to all players in the session
     io.to(joinCode).emit('game-update', delta);
 
+    if (delta.type === 'instructions-hidden') {
+      const session = getSession(joinCode);
+      if (session) {
+        io.to(joinCode).emit('session-snapshot', {
+          session: session.toSnapshot()
+        });
+      }
+    }
+
     if (delta.gameType === 'typeflight' && delta.type === 'typeflight-begin') {
       const session = getSession(joinCode);
       if (session) {

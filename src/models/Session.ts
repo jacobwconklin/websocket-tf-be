@@ -12,6 +12,7 @@ export default class Session {
   phase: SessionPhase;
   lobbyOpen: boolean;
   hostPlayerId: string | null;
+  showInstructions: boolean;
   version: number;
 
   constructor(joinCode: string, gameName: string | null = null) {
@@ -24,6 +25,7 @@ export default class Session {
     this.phase = 'lobby';
     this.lobbyOpen = true;
     this.hostPlayerId = null;
+    this.showInstructions = false;
     this.version = 1;
   }
 
@@ -86,12 +88,19 @@ export default class Session {
     this.bumpVersion();
   }
 
+  setShowInstructions(show: boolean) {
+    if (this.showInstructions === show) return;
+    this.showInstructions = show;
+    this.bumpVersion();
+  }
+
   resetToLobby() {
     this.gameName = null;
     this.gameState = {};
     this.started = false;
     this.setPhase('lobby');
     this.setLobbyOpen(true);
+    this.setShowInstructions(false);
     this.bumpVersion();
   }
 
@@ -106,6 +115,7 @@ export default class Session {
       phase: this.phase,
       lobbyOpen: this.lobbyOpen,
       hostPlayerId: this.hostPlayerId,
+      'show-instructions': this.showInstructions,
       version: this.version
     };
   }

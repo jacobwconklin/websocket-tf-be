@@ -16,15 +16,20 @@ import Player from '../models/Player';
 import { isDuplicateEvent } from '../utils/idempotency';
 
 function detachFromPreviousSession(socket: Socket, io: Server, nextJoinCode: string) {
+  console.log('[detachFromPreviousSession] START - nextJoinCode:', nextJoinCode);
   const previousJoinCode = (socket as any).data.joinCode as string | undefined;
   const previousPlayerId = (socket as any).data.playerId as string | undefined;
+  console.log('[detachFromPreviousSession] Current socket session - previousJoinCode:', previousJoinCode, 'previousPlayerId:', previousPlayerId);
 
   if (!previousJoinCode || previousJoinCode === nextJoinCode || !previousPlayerId) {
+    console.log('[detachFromPreviousSession] Skipping (no previous session or same as next)');
     return;
   }
 
   const previousSession = getSession(previousJoinCode);
+  console.log('[detachFromPreviousSession] Previous session exists:', !!previousSession);
   if (!previousSession) {
+    console.log('[detachFromPreviousSession] Previous session not found, just leaving room');
     socket.leave(previousJoinCode);
     (socket as any).data.joinCode = undefined;
     (socket as any).data.playerId = undefined;
@@ -32,8 +37,10 @@ function detachFromPreviousSession(socket: Socket, io: Server, nextJoinCode: str
   }
 
   const updatedSession = removePlayerFromSession(previousJoinCode, previousPlayerId);
+  console.log('[detachFromPreviousSession] Player removed:', !!updatedSession);
   if (updatedSession) {
     if (updatedSession.hostPlayerId === previousPlayerId) {
+      console.log('[detachFromPreviousSession] Host left, clearing host');
       updatedSession.setHostPlayerId(null);
     }
 
@@ -57,6 +64,7 @@ function detachFromPreviousSession(socket: Socket, io: Server, nextJoinCode: str
   socket.leave(previousJoinCode);
   (socket as any).data.joinCode = undefined;
   (socket as any).data.playerId = undefined;
+  console.log('[detachFromPreviousSession] COMPLETE - Socket detached from previous session');
 }
 
 // REST API Handlers
@@ -185,75 +193,95 @@ export function handleJoinSession(socket: Socket, io: Server, data: any) {
 }
 
 export function handleRejoinSession(socket: Socket, io: Server, data: any, ack?: (payload: any) => void) {
+  console.log('[handleRejoinSession] START - Socket:', socket.id, 'Data:', data);
   const { joinCode, playerId } = data || {};
   const eventId = data?.eventId as string | undefined;
+  console.log('[handleRejoinSession] Extracted joinCode:', joinCode, 'playerId:', playerId, 'eventId:', eventId);
 
   if (!joinCode || !playerId) {
+    console.log('[handleRejoinSession] FAIL: Missing joinCode or playerId');
     socket.emit('rejoin-failed', { error: 'Join code and player ID are required' });
     if (ack) ack({ success: false, error: 'Join code and player ID are required' });
     return;
   }
 
   if (playerId === 'guest') {
+    console.log('[handleRejoinSession] FAIL: Player is guest');
     socket.emit('rejoin-failed', { error: 'Invalid player identity', reason: 'invalid-player-id' });
     if (ack) ack({ success: false, error: 'Invalid player identity', reason: 'invalid-player-id' });
     return;
   }
 
+  console.log('[handleRejoinSession] Detaching from previous session...');
   detachFromPreviousSession(socket, io, joinCode);
 
   const session = getSession(joinCode);
+  console.log('[handleRejoinSession] Got session:', session ? 'EXISTS' : 'NOT FOUND');
   if (!session) {
+    console.log('[handleRejoinSession] FAIL: Session not found for joinCode:', joinCode);
     socket.emit('rejoin-failed', { error: 'Session not found', reason: 'session-not-found' });
     if (ack) ack({ success: false, error: 'Session not found', reason: 'session-not-found' });
     return;
   }
 
   if (isDuplicateEvent(`${joinCode}:${playerId}:rejoin-session`, eventId)) {
+    console.log('[handleRejoinSession] DUPLICATE EVENT detected, returning cached response');
     if (ack) ack({ success: true, duplicate: true, session: session.toSnapshot() });
     return;
   }
 
   const player = session.getPlayer(playerId);
+  console.log('[handleRejoinSession] Got player:', player ? 'EXISTS - connectionState: ' + player.connectionState : 'NOT FOUND');
   if (!player) {
+    console.log('[handleRejoinSession] FAIL: Player not found in session. Session has', session.players.length, 'players');
     socket.emit('rejoin-failed', { error: 'Player not found in session', reason: 'player-not-found' });
     if (ack) ack({ success: false, error: 'Player not found in session', reason: 'player-not-found' });
     return;
   }
 
   if (player.connectionState === 'kicked') {
+    console.log('[handleRejoinSession] FAIL: Player is kicked');
     socket.emit('rejoin-failed', { error: 'Player was removed by host', reason: 'kicked' });
     if (ack) ack({ success: false, error: 'Player was removed by host', reason: 'kicked' });
     return;
   }
 
+  console.log('[handleRejoinSession] Marking player connected with new socketId:', socket.id);
   const updatedSession = markPlayerConnected(joinCode, playerId, socket.id);
+  console.log('[handleRejoinSession] markPlayerConnected result:', updatedSession ? 'SUCCESS' : 'FAILED');
   if (!updatedSession) {
+    console.log('[handleRejoinSession] FAIL: Could not restore player connection');
     socket.emit('rejoin-failed', { error: 'Failed to restore player connection', reason: 'internal' });
     if (ack) ack({ success: false, error: 'Failed to restore player connection', reason: 'internal' });
     return;
   }
 
+  console.log('[handleRejoinSession] Joining socket to room:', joinCode);
   socket.join(joinCode);
   (socket as any).data.joinCode = joinCode;
   (socket as any).data.playerId = playerId;
   (socket as any).data.socketId = socket.id;
+  console.log('[handleRejoinSession] Socket data updated');
 
+  console.log('[handleRejoinSession] Sending rejoin-success to socket');
   socket.emit('rejoin-success', {
     success: true,
     session: updatedSession.toSnapshot()
   });
 
+  console.log('[handleRejoinSession] Broadcasting player-connection-changed to room');
   io.to(joinCode).emit('player-connection-changed', {
     playerId,
     connectionState: 'connected',
     graceMs: DISCONNECT_GRACE_MS
   });
 
+  console.log('[handleRejoinSession] Broadcasting session-snapshot to room');
   io.to(joinCode).emit('session-snapshot', {
     session: updatedSession.toSnapshot()
   });
 
+  console.log('[handleRejoinSession] SUCCESS - Player', playerId, 'rejoined session', joinCode);
   if (ack) ack({ success: true, session: updatedSession.toSnapshot() });
 }
 
