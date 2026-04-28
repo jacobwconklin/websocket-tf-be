@@ -12,7 +12,8 @@ export function initializeQuickKeys(session: Session): any {
     playerPositions[player.id] = {
       index: 0,
       time: null,
-      errors: 0
+      errors: 0,
+      finished: false
     };
   });
 
@@ -42,7 +43,8 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
       session.gameState.playerPositions[player.id] = {
         index: 0,
         time: null,
-        errors: 0
+        errors: 0,
+        finished: false
       };
     });
   }
@@ -83,6 +85,7 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
     if (playerPos) {
       playerPos.time = data.time;
       playerPos.errors = data.errors;
+      playerPos.finished = true;
     }
 
     delta.type = 'text-completed';
@@ -91,7 +94,7 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
 
     // Check if all players have finished
     const allFinished = Object.values(session.gameState.playerPositions).every(
-      (pos: any) => pos.time !== null
+      (pos: any) => pos.finished === true || pos.time !== null
     );
 
     if (allFinished) {
@@ -113,6 +116,7 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
     session.gameState.finished = true;
     delta.type = 'game-ended';
     delta.finished = true;
+    delta.endedEarly = true;
 
     return delta;
   }
