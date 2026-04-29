@@ -20,6 +20,7 @@ export function initializeQuickKeys(session: Session): any {
   return {
     finished: false,
     textName: null,
+    errorPenaltySeconds: 0,
     playerPositions: playerPositions
   };
 }
@@ -37,6 +38,7 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
     session.gameState = {
       finished: false,
       textName: null,
+      errorPenaltySeconds: 0,
       playerPositions: {}
     };
     session.players.forEach(player => {
@@ -53,6 +55,24 @@ export function updateQuickKeys(session: Session, playerId: string, data: any): 
     gameType: 'quickkeys',
     playerId: playerId
   };
+
+  // Host-only: update error penalty (seconds) before/during game.
+  if (data.type === 'error-penalty-changed') {
+    if (playerId !== session.hostPlayerId) {
+      return null;
+    }
+
+    const raw = data.errorPenaltySeconds;
+    const next = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(next) || next < 0) {
+      return null;
+    }
+
+    session.gameState.errorPenaltySeconds = next;
+    delta.type = 'error-penalty-changed';
+    delta.errorPenaltySeconds = next;
+    return delta;
+  }
 
   // Handle text selection
   if (data.type === 'text-selected') {
